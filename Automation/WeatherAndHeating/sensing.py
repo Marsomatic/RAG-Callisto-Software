@@ -2,6 +2,7 @@ from ina219 import INA219
 from time import sleep
 import smbus2
 import bme280
+import os
 
 SHUNT_OHMS = 0.1
 
@@ -56,17 +57,30 @@ def readTemp(bus, bmeAddress, calibration_params):
 
 
 while True:
-    sleep(1)
+    
     print("CALLISTO radio spectrometer")
     read(inaCallisto, callistoAddress)
 
     print("LNA - LNA4ALL low noise amplifier")
     read(inaLNA, lnaAddress)
-
+#from 24 subtract 6 for correct output without lna
+    
     print("Heater - two 20W car light bulbs")
     read(inaHeater, heaterAddress)
 
     print("BME280 temperature sensor")
     readTemp(bus, bmeAddress, calibration_params)
         
-    print("\033[F"*24, end='')
+    #The function print('\33[<number of rows>A', end='') is used to bring back the cursor to the beginning
+    #so the print can "refresh" itself while taking a new measurement
+    #parameter <number of rows> shows how many rows does the cursor go back for
+
+    #read() has in itself 5 printable rows
+    #readTemp() has  5 printable rows
+
+    #For example, without the LNA attached, we print 1+5 + 1+5 + 1+5, which amounts to 18 rows.
+
+
+    #print("\033[F"*24, end='')
+    print('\33[24A', end='')
+    sleep(1)

@@ -1,0 +1,14 @@
+import RPi.GPIO as g
+from time import sleep
+
+def main():
+	g.setmode(g.BOARD)
+	g.setup(21, g.OUT)
+
+	g.output(21, 0)
+	sleep(10)
+	g.cleanup()
+	print("heater off")
+
+if __name__ == "__main__":
+	main()
