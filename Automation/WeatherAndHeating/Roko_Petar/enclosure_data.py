@@ -29,13 +29,13 @@ def getDewPoint(airTemperature, relativeHumidity):
 
 dew_point_c = getDewPoint(data.temperature, data.humidity)
 
-# === CREATE FOLDERS & CSV PATH ===
+# === CREATE FOLDERS & FILE PATHS ===
 year_folder = os.path.join(BASE_DIR, now.strftime("%Y"))
 month_folder = os.path.join(year_folder, now.strftime("%m"))
-day_folder = os.path.join(month_folder, now.strftime("%d"))
-os.makedirs(day_folder, exist_ok=True)
+os.makedirs(month_folder, exist_ok=True)
 
-csv_file = os.path.join(day_folder, f"{now.strftime('%Y-%m-%d')}_enclosure_data.csv")
+file_base = f"{now.strftime('%Y-%m-%d')}_enclosure_data"
+csv_file = os.path.join(month_folder, f"{file_base}.csv")
 
 # --- Write header if new file ---
 if not os.path.isfile(csv_file):
@@ -98,63 +98,3 @@ times_p, pres_p = break_on_gaps(times, pressures)
 fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 
 # 1. Temp + Dew Point
-axes[0].plot(times_t, temps_t, label="Temperature (°C)", color="red")
-axes[0].plot(times_d, dew_d, label="Dew Point (°C)", color="green")
-axes[0].set_ylabel("Temp / Dew [°C]")
-axes[0].legend(loc="upper left")
-axes[0].set_title(f"Enclosure Data - {now.strftime('%Y-%m-%d')}")
-axes[0].grid(True)
-
-# 2. Humidity
-axes[1].plot(times_h, hum_h, label="Humidity (%)", color="blue")
-axes[1].set_ylabel("Humidity [%]")
-axes[1].legend(loc="upper left")
-axes[1].grid(True)
-
-# 3. Pressure
-axes[2].plot(times_p, pres_p, label="Pressure (hPa)", color="purple")
-axes[2].set_ylabel("Pressure [hPa]")
-axes[2].legend(loc="upper left")
-axes[2].grid(True)
-
-# === Y-axis adjustments ===
-def safe_minmax(values):
-    vals = [v for v in values if not np.isnan(v)]
-    return min(vals), max(vals)
-
-ymin, ymax = safe_minmax(temps_t + dew_d)
-axes[0].set_ylim(min(ymin, 0), ymax + 8)
-
-ymin, ymax = safe_minmax(hum_h)
-axes[1].set_ylim(min(ymin, 0), ymax + 8)
-
-# === X-axis (24 hours) ===
-midnight_start = datetime.combine(now.date(), time(0, 0))
-midnight_next = midnight_start + timedelta(days=1)
-for ax in axes:
-    ax.set_xlim(midnight_start, midnight_next)
-
-tick_datetimes = [midnight_start + timedelta(hours=h) for h in range(25)]
-tick_locs = [mdates.date2num(dt) for dt in tick_datetimes]
-
-def format_time(x, pos):
-    dt = mdates.num2date(x)
-    if dt.date() == midnight_next.date() and dt.hour == 0 and dt.minute == 0:
-        return "24:00"
-    return dt.strftime("%H:%M")
-
-for ax in axes:
-    ax.xaxis.set_major_locator(FixedLocator(tick_locs))
-    ax.xaxis.set_major_formatter(FuncFormatter(format_time))
-
-axes[2].set_xlabel("UTC Time (HH:MM)")
-
-fig.autofmt_xdate()
-plt.tight_layout()
-
-# === SAVE PNG ===
-chart_file = os.path.join(day_folder, f"enclosure_data_{now.strftime('%Y-%m-%d')}.png")
-plt.savefig(chart_file, dpi=150)
-plt.close()
-
-print(f"Data logged and chart saved: {chart_file}")

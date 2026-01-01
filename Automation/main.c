@@ -11,6 +11,13 @@ compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/
 // encoder ticks per revolution of output shaft(encoder ticks * gearbox ratio)
 #define TICKS_PER_REV 60000
 
+// GPIO pins
+#define STEP_PIN  13
+#define DIR_PIN   5
+#define EN_PIN    6
+#define ENC_A     17
+#define ENC_B     27
+
 
 SpiceDouble ephemeris_t; // ephemeris time past J2000
 SpiceDouble obs_lat = 0.790213649;
