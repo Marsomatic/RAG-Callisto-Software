@@ -1,6 +1,6 @@
 /*
 Author: Matej Markovic
-compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspice
+compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspices
 */
 
 #include <stdio.h>
@@ -8,7 +8,9 @@ compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/
 #include <math.h>
 #include "SpiceUsr.h"
 
+// encoder ticks per revolution of output shaft(encoder ticks * gearbox ratio)
 #define TICKS_PER_REV 60000
+
 
 SpiceDouble ephemeris_t; // ephemeris time past J2000
 SpiceDouble obs_lat = 0.790213649;
@@ -84,16 +86,16 @@ SpiceDouble getHa(){
 
 int main(int argc, char **argv){
     SpiceDouble ha;
-    SpiceInt sp;
+    SpiceInt setpoint;
     furnsh_c("/home/matej/cspice/kernels/naif0012.tls");    // leapseconds
     furnsh_c("/home/matej/cspice/kernels/de435.bsp");      // planetary ephemeris
     furnsh_c("/home/matej/cspice/kernels/pck00011.tpc");    // Earth orientation & shape
     furnsh_c("/home/matej/cspice/kernels/earth_000101_260327_251229.bpc"); // earth binary pck
 
     ha = getHa();
-    sp = ha/twopi_c() * TICKS_PER_REV + TICKS_PER_REV/4;
- 
-    printf("HA: %f;    Setpoint: %d\n", ha, sp);
+    setpoint = ha/twopi_c() * TICKS_PER_REV + TICKS_PER_REV/4;
+
+    printf("HA: %f;    Setpoint: %d\n", ha, setpoint);
 
     kclear_c();
 
