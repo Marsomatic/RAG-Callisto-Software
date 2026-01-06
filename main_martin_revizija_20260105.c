@@ -281,3 +281,58 @@ int main(int argc, char **argv){
 
     return 0;
 }
+
+__________
+enum State {
+  state1,
+  state2,
+  state3
+}
+
+State conver_str_to_start(char *str){
+  if(strcmp(str, "state1") == 0) return state1;
+  if(strcmp(str, "state2") == 0) return state2;
+  ...
+
+}
+
+
+
+int main(int argc, char **argv){
+  if(argc != 2){
+    printf("Error: Did not provide starting state!!!\n");
+    exit(1);
+  }
+  
+  State current_state = convert_str_to_start(argv[1]);
+  
+  while(1){
+    switch(current_state){
+      case: state1
+        napravi sta treba
+        current_state = novi_state
+      case state2
+        napravi_state treba
+        current_state = novi state
+      default:
+        ako nes ode u kurac
+      }
+    
+    }
+  
+  }
+  
+  
+
+
+  return 0;
+}
+_______________
+
+
+
+trebamo pogledat kako se rade daemons in C
+navodno nije komplicirano
+odi na stack i kopiraj sve sta se tamo nalazi lol
+trebta cemo napisat zasebni program za daemon
+treba pogledat multiplexing sa poll funckijom
