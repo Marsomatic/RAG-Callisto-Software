@@ -114,6 +114,7 @@ int main(void) {
     pinMode(DIR_PIN, OUTPUT);
     pinMode(ENC_A, INPUT);
     pinMode(ENC_B, INPUT);
+    digitalWrite(EN_PIN, 0);
 
     wiringPiISR(ENC_A, INT_EDGE_BOTH, &encoderISR);
     wiringPiISR(ENC_B, INT_EDGE_BOTH, &encoderISR);

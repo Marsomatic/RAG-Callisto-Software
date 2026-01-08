@@ -11,6 +11,7 @@ compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/
 #include <unistd.h>
 #include <pthread.h>
 #include <wiringPi.h>
+#include <stdbool.h>
 #include "SpiceUsr.h"
 
 // encoder ticks per revolution of output shaft(encoder ticks * gearbox ratio)
@@ -25,6 +26,7 @@ compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/
 #define EN_PIN    6
 #define ENC_A     27
 #define ENC_B     17
+#define LIMIT_SWITCH_PIN 20
 
 // Encoder state
 volatile long encoder_ticks = 0;
@@ -119,16 +121,6 @@ void encoderISR(void) {
     int a = digitalRead(ENC_A);
     int b = digitalRead(ENC_B);
 
-    // static int last_a = 0, last_b = 0;
-
-    // if (a != last_a || b != last_b) {
-    //     if (a == b) encoder_ticks++;
-    //     else encoder_ticks--;
-    // }
-
-    // last_a = a;
-    // last_b = b;
-
     uint8_t state = (a << 1) | b;
     pthread_mutex_lock(&lock);
     uint8_t index = (lastState << 2) | state;
@@ -173,12 +165,6 @@ void *stepperThread(void *arg) {
     return NULL;
 }
 
-void *displayThreaed(void *arg){
-    while(1) {
-
-    }
-}
-
 // --- PID loop ---
 void pid_update(float dt) {
     volatile float Kp = 10.0, Ki = 0.0, Kd = 0.0;
@@ -208,7 +194,7 @@ void pid_update(float dt) {
 }
 
 // --- The antenna knows where it is by knowing where it isnt ---
-void *guidanceThread(void *arg){
+void *guidanceThread(void *arg){ 
     SpiceDouble ha;
     int loc_setpoint;
     printf("Guidance thread started\n");
@@ -248,6 +234,19 @@ void *guidanceThread(void *arg){
     }
 }
 
+void *homing(){
+    pthread_mutex_lock(&lock);
+    target_step_rate = -100;
+    pthread_mutex_unlock(&lock);
+    while(digitalRead(LIMIT_SWITCH_PIN)){
+        continue;
+    }
+    pthread_mutex_lock(&lock);
+    target_step_rate = 0;
+    encoder_ticks = 0;
+    pthread_mutex_unlock(&lock);
+}
+
 int main(int argc, char **argv){
     printf("Starting Automatic Solar Tracking\n");
     wiringPiSetupGpio();
@@ -260,6 +259,7 @@ int main(int argc, char **argv){
 
     wiringPiISR(ENC_A, INT_EDGE_BOTH, &encoderISR);
     wiringPiISR(ENC_B, INT_EDGE_BOTH, &encoderISR);
+    wiringPiISR(LIMIT_SWITCH_PIN, INT_EDGE_FALLING, &limitSwitchISR);
 
     furnsh_c("/home/kalisto/cspice/kernels/naif0012.tls");    // leapseconds
     furnsh_c("/home/kalisto/cspice/kernels/de435.bsp");      // planetary ephemeris
@@ -274,6 +274,7 @@ int main(int argc, char **argv){
     pthread_mutex_init(&lock, NULL);
     pthread_create(&stepper_thread, NULL, stepperThread, NULL);
     pthread_create(&guidance_thread, NULL, guidanceThread, NULL);
+    
     printf("Threads created\n");
     pthread_join(stepper_thread, NULL);
     pthread_join(guidance_thread, NULL);
