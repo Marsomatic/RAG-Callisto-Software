@@ -1,5 +1,5 @@
 /*
-Author: Matej Markovic
+Author: Matej Markovic, Marko Radolovic
 compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspice -lwiringPi
 */
 
@@ -153,6 +153,34 @@ void encoderISR(void) {
     pthread_mutex_unlock(&lock);
 }
 
+// --- PID loop ---
+void pid_loop(float dt) {
+    volatile float Kp = 10.0, Ki = 0.0, Kd = 0.0;
+    pthread_mutex_lock(&lock);
+    float loc_setpoint = (float)setpoint; // steps/sec
+    float loc_encoder_ticks = (float)encoder_ticks;
+    pthread_mutex_unlock(&lock);
+
+    float prev_error, integral;
+    float error = loc_setpoint - loc_encoder_ticks;
+    
+
+    integral += error * dt;
+    if (integral > 1000) integral = 1000; // anti-windup
+    if (integral < -1000) integral = -1000;
+
+    float derivative = (error - prev_error) / dt;
+    float output = Kp * error + Ki * integral + Kd * derivative;
+
+    prev_error = error;
+
+    // Update shared step rate
+    pthread_mutex_lock(&lock);
+    target_step_rate = output; // steps/sec
+    pthread_mutex_unlock(&lock);
+    printf("encoder_ticks: %f;   error: %f;   output/step_rate:%f   ", loc_encoder_ticks, error, output);
+}
+
 // --- Stepper thread ---
 void *stepperThread(void *arg) {
     printf("Starting stepper thread\n");
@@ -183,36 +211,8 @@ void *stepperThread(void *arg) {
     return NULL;
 }
 
-// --- PID loop ---
-void pid_update(float dt) {
-    volatile float Kp = 10.0, Ki = 0.0, Kd = 0.0;
-    pthread_mutex_lock(&lock);
-    float loc_setpoint = (float)setpoint; // steps/sec
-    float loc_encoder_ticks = (float)encoder_ticks;
-    pthread_mutex_unlock(&lock);
-
-    float prev_error, integral;
-    float error = loc_setpoint - loc_encoder_ticks;
-    
-
-    integral += error * dt;
-    if (integral > 1000) integral = 1000; // anti-windup
-    if (integral < -1000) integral = -1000;
-
-    float derivative = (error - prev_error) / dt;
-    float output = Kp * error + Ki * integral + Kd * derivative;
-
-    prev_error = error;
-
-    // Update shared step rate
-    pthread_mutex_lock(&lock);
-    target_step_rate = output; // steps/sec
-    pthread_mutex_unlock(&lock);
-    printf("encoder_ticks: %f;   error: %f;   output/step_rate:%f   ", loc_encoder_ticks, error, output);
-}
-
 // --- The antenna knows where it is by knowing where it isnt ---
-void *guidanceThread(void *arg){
+void *automaticGuidanceThread(void *arg){
     SpiceDouble ha;
     int loc_setpoint;
     printf("Guidance thread started\n");
@@ -246,12 +246,52 @@ void *guidanceThread(void *arg){
         pthread_mutex_unlock(&lock);
 
         printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
-        pid_update(PID_PERIOD / 1000.0);
+        pid_loop(PID_PERIOD / 1000.0);
         nanosleep(&ts, NULL);
         cycleCounter++;
     }
 }
 
+//a slight mod of the automatic guidance. we dont need RA calculation, we take it from the console
+void *manualGuidanceThread(void *arg){
+    SpiceDouble ha;
+    int loc_setpoint;
+    printf("Guidance thread started\n");
+
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 1000000 * PID_PERIOD; // period in nanoseconds 
+    volatile uint32_t cycleCounter = TARGET_POSITION_UPDATE_MULTIPLIER + 1;
+
+    // ha = getHa();
+    // int loc_setpoint = (int)(ha/PI * TICKS_PER_REV + TICKS_PER_REV/4.0f);
+    // loc_setpoint = (int)(ha/PI * TICKS_PER_REV + TICKS_PER_REV/4.0f);
+    // if (loc_setpoint > TICKS_PER_REV/2){
+    //     loc_setpoint -= TICKS_PER_REV/2;
+    // } else if (loc_setpoint < -TICKS_PER_REV/2){
+    //     loc_setpoint += TICKS_PER_REV/2;
+    // }
+    while(1) {
+        if (cycleCounter > TARGET_POSITION_UPDATE_MULTIPLIER){
+            ha = getHa();
+            loc_setpoint = (int)(ha/(2*PI) * TICKS_PER_REV + TICKS_PER_REV/4.0f);
+            if (loc_setpoint > TICKS_PER_REV/2){
+                loc_setpoint -= TICKS_PER_REV/2;
+            } else if (loc_setpoint < -TICKS_PER_REV/2){
+                loc_setpoint += TICKS_PER_REV/2;
+            }
+            cycleCounter = 0;
+        }
+        pthread_mutex_lock(&lock);
+        setpoint = loc_setpoint;
+        pthread_mutex_unlock(&lock);
+
+        printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
+        pid_loop(PID_PERIOD / 1000.0);
+        nanosleep(&ts, NULL);
+        cycleCounter++;
+    }
+}
 
 void automaticControl(){
   printf("Starting Automatic Solar Tracking\n");
@@ -278,11 +318,35 @@ void automaticControl(){
   pthread_t guidance_thread;
   pthread_mutex_init(&lock, NULL);
   pthread_create(&stepper_thread, NULL, stepperThread, NULL);
-  pthread_create(&guidance_thread, NULL, guidanceThread, NULL);
+  pthread_create(&guidance_thread, NULL, automaticGuidanceThread, NULL);
   printf("Threads created\n");
   pthread_join(stepper_thread, NULL);
   pthread_join(guidance_thread, NULL);
   kclear_c();
+
+  return;
+}
+
+void manualControl(){
+  //stop - to stop press q or s or whatever
+  //pomak na manji RA
+  //pomak na veći RA
+  //pomak na određenu poziciju
+      //zelis li upisivati u RA obliku ili kut
+  
+  
+  printf("Starting Manual Control\n");
+  wiringPiSetupGpio();
+
+  pinMode(STEP_PIN, OUTPUT);
+  pinMode(DIR_PIN, OUTPUT);
+  pinMode(EN_PIN, OUTPUT);
+  pinMode(ENC_A, INPUT);
+  pinMode(ENC_B, INPUT);
+
+  wiringPiISR(ENC_A, INT_EDGE_BOTH, &encoderISR);
+  wiringPiISR(ENC_B, INT_EDGE_BOTH, &encoderISR);
+
 
   return;
 }
@@ -301,9 +365,8 @@ int main(int argc, char **argv){
     switch(current_state){
       case: ST_AUTO
         automaticControl();
-      case manual
-        napravi_state treba
-        current_state = novi state
+      case ST_MANUAL
+        manualControl();
       default:
         ako nes ode u kurac
       }
@@ -311,14 +374,9 @@ int main(int argc, char **argv){
     }
   
   }
-  
-  
-
 
   return 0;
 }
-_______________
-
 
 /*trebamo pogledat kako se rade daemons in C
 navodno nije komplicirano
