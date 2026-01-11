@@ -49,19 +49,41 @@ void *consoleThread(void *arg){
             buf[strcspn(buf, "\n")] = 0; // strip newline
 
             if (!strcmp(buf, "auto")){
-                current_state = ST_AUTOMATIC;
-                printf("[CMD] Automatic mode\n");
+                if(current_state == ST_AUTOMATIC){
+			printf("already in automatic tracking mode\n");
+			continue;
+		}
+		current_state = ST_AUTOMATIC;
+                printf("[CMD] Automatic mode pocetak automatskog\n");
             }
             else if (!strcmp(buf, "manual")){
-                current_state = ST_MANUAL;
-                printf("[CMD] Manual mode\n");
+                if(current_state == ST_MANUAL){
+			printf("already in manual control mode\n");
+			continue;
+		}
+		current_state = ST_MANUAL;
+                printf("[CMD] Manual  mode -  pocetak manualnog\n");
             }
             else if (!strcmp(buf, "stop")){
-                current_state = ST_IDLE;
-                printf("[CMD] Stop\n");
+		if(current_state == ST_AUTOMATIC){
+			current_state = ST_IDLE;
+			printf("Automatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
+		}
+
+		if(current_state == ST_MANUAL){
+			current_state = ST_IDLE;
+			printf("Manual control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
+		}
+
+		if(current_state == ST_IDLE){
+                	printf("[CMD] Stop\n");
+			printf("Previous state/command is stopped. Use these commands to continue: auto | manual | stop | status | quit\n");
+		}
             }
             else if (!strcmp(buf, "status")){
-                printf("[STATUS] Current state = %d\n", current_state);
+	    	if(current_state == ST_AUTOMATIC) printf("[STATUS] Current state is automatic tracking\n");
+	    	if(current_state == ST_MANUAL) printf("[STATUS] Current state is manual tracking\n");
+		if(current_state == ST_IDLE) printf("[STATUS] Current state is idle state.\n");
             }
             else if (!strcmp(buf, "quit")){
                 current_state = ST_EXIT;
@@ -73,16 +95,17 @@ void *consoleThread(void *arg){
             }
         }
 
-        usleep(50000); // 50 ms
+       //usleep(50000); // 50 ms
     }
     return NULL;
 }
 
 /* =======================
    MAIN FSM LOOP
-   ======================= */
-
+======================= */
 int main(void){
+    int shitter = 1;
+
     pthread_t console_thread;
 
     make_stdin_nonblocking();
@@ -94,20 +117,27 @@ int main(void){
         switch(current_state){
 
             case ST_IDLE:
-                // do nothing
+                if(shitter){
+		printf("we are in idle state.\n"); // do nothing
+		//so i can print only once
+		shitter = 0;
+		}
                 break;
 
             case ST_AUTOMATIC:
                 printf("[FSM] Automatic running...\n");
                 sleep(1);
+		shitter = 1;
                 break;
 
             case ST_MANUAL:
                 printf("[FSM] Manual running...\n");
                 sleep(1);
+		shitter = 1;
                 break;
 
             case ST_EXIT:
+		shitter = 1;
                 system_running = 0;
                 break;
         }
@@ -119,4 +149,3 @@ int main(void){
     printf("Clean exit.\n");
     return 0;
 }
-
