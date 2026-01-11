@@ -1,5 +1,5 @@
 /*
-Author: Matej Markovic, Marko Radolovic
+Authors: Matej Markovic, Marko Radolovic
 compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspice -lwiringPi
 */
 
