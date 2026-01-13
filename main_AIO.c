@@ -52,6 +52,7 @@ typedef enum {
 
 volatile SystemState current_state = ST_IDLE;
 volatile int system_running = 1;
+volatile int control_running = 0;
 
 /* ======================= NON-BLOCKING STDIN ======================= */
 
@@ -286,7 +287,7 @@ void *automaticGuidanceThread(void *arg){
     // } else if (loc_setpoint < -TICKS_PER_REV/2){
     //     loc_setpoint += TICKS_PER_REV/2;
     // }
-    while(system_running) {
+    while(control_running) {
         if (cycleCounter > TARGET_POSITION_UPDATE_MULTIPLIER){
             ha = getHa();
             loc_setpoint = (int)(ha/(2*PI) * TICKS_PER_REV + TICKS_PER_REV/4.0f);
@@ -348,7 +349,8 @@ void *consoleThread(void *arg){
 
             else if (!strcmp(buf, "stop")){
 		        if(current_state == ST_AUTOMATIC){
-			        current_state = ST_IDLE;
+			        //control_running = 0; //if this is uncommented, the threads will be killed and the auto control must be started again
+                    current_state = ST_IDLE;
 			        printf("Automatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 
@@ -397,37 +399,40 @@ void *consoleThread(void *arg){
 /* ======================= AUTOMATIC CONTROL STATE ====================== */
 
 void automaticControl(){
-  printf("Starting Automatic Solar Tracking\n");
-  wiringPiSetupGpio();
+    printf("Starting Automatic Solar Tracking\n");
+    wiringPiSetupGpio();
 
-  pinMode(STEP_PIN, OUTPUT);
-  pinMode(DIR_PIN, OUTPUT);
-  pinMode(EN_PIN, OUTPUT);
-  pinMode(ENC_A, INPUT);
-  pinMode(ENC_B, INPUT);
+    pinMode(STEP_PIN, OUTPUT);
+    pinMode(DIR_PIN, OUTPUT);
+    pinMode(EN_PIN, OUTPUT);
+    pinMode(ENC_A, INPUT);
+    pinMode(ENC_B, INPUT);
 
-  wiringPiISR(ENC_A, INT_EDGE_BOTH, &encoderISR);
-  wiringPiISR(ENC_B, INT_EDGE_BOTH, &encoderISR);
+    wiringPiISR(ENC_A, INT_EDGE_BOTH, &encoderISR);
+    wiringPiISR(ENC_B, INT_EDGE_BOTH, &encoderISR);
 
-  furnsh_c("/home/kalisto/cspice/kernels/naif0012.tls");    // leapseconds
-  furnsh_c("/home/kalisto/cspice/kernels/de435.bsp");      // planetary ephemeris
-  furnsh_c("/home/kalisto/cspice/kernels/pck00011.tpc");    // Earth orientation & shape
-  furnsh_c("/home/kalisto/cspice/kernels/earth_000101_260327_251229.bpc"); // earth binary pck
+    furnsh_c("/home/kalisto/cspice/kernels/naif0012.tls");    // leapseconds
+    furnsh_c("/home/kalisto/cspice/kernels/de435.bsp");      // planetary ephemeris
+    furnsh_c("/home/kalisto/cspice/kernels/pck00011.tpc");    // Earth orientation & shape
+    furnsh_c("/home/kalisto/cspice/kernels/earth_000101_260327_251229.bpc"); // earth binary pck
+    printf("Kernels loaded\n");
 
-  printf("Kernels loaded\n");
-  digitalWrite(EN_PIN, 0);
-  printf("Stepper enabled\n");
-  pthread_t stepper_thread;
-  pthread_t guidance_thread;
-  pthread_mutex_init(&lock, NULL);
-  pthread_create(&stepper_thread, NULL, stepperThread, NULL);
-  pthread_create(&guidance_thread, NULL, automaticGuidanceThread, NULL);
-  printf("Threads created\n");
-  pthread_join(stepper_thread, NULL);
-  pthread_join(guidance_thread, NULL);
-  kclear_c();
+    digitalWrite(EN_PIN, 0); //EN = LOW enables the stepper driver. EN = HIGH disables the stepper driver
+    printf("Stepper enabled\n");
 
-  return;
+    control_running = 1; //enables the control threads
+
+    pthread_t stepper_thread;
+    pthread_t guidance_thread;
+    pthread_mutex_init(&lock, NULL);
+    pthread_create(&stepper_thread, NULL, stepperThread, NULL);
+    pthread_create(&guidance_thread, NULL, automaticGuidanceThread, NULL);
+    printf("Threads created\n");
+    pthread_join(stepper_thread, NULL);
+    pthread_join(guidance_thread, NULL);
+    kclear_c();
+
+    return;
 }
 
 /* ======================= MAIN FSM LOOP ======================= */
