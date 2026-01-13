@@ -11,7 +11,7 @@
 #define CONSOLE_PERIOD 1000 //in usec
 
 char programVersion[] = "V1.0.";
-char programDate[] = "12 01 2026";
+char programDate[] = "12.01.2026";
 
 /* ======================= GLOBAL STATE ======================= */
 
@@ -37,8 +37,8 @@ void make_stdin_nonblocking(void){
 void *consoleThread(void *arg){
     char buf[128];
 
-    printf("Console ready.\n");
-    printf("Commands: auto | manual | stop | status | quit | help\n");
+    printf("Console is ready.\n");
+    printf("\nCommands: auto | manual | stop | status | quit | help | clear\n\n");
 
     while(system_running){
         memset(buf, 0, sizeof(buf));
@@ -96,12 +96,43 @@ void *consoleThread(void *arg){
 
             else if (!strcmp(buf, "help")){
                 if(current_state == ST_AUTOMATIC || current_state == ST_MANUAL || current_state == ST_IDLE){
-                    printf("[CMD] Help\n");
-                    printf("triba ti pomoc?\nIve ja i ti moramo ozbiljno popricati.\n");
-                    printf("Ive sad slusaj sta cu ti ja reci. Necu ti reci nista, ti dobro znas sta ti ja govorin.\n\n");
+                    //printf("[CMD] Help\n");
+                    printf("\nCommands: auto | manual | stop | status | quit | help | clear\n\n");
+
+                    printf("\nThis control program has been implemented as a 3 state finite state machine\n"
+                    "The 3 states are automatic control, manual control, and idle state\n\n");
+
+                    printf("WE SHOULD AGREE UPON WHAT DOES THE IDLE STATE DO, DO WE KILL THREADS?\n\n");
+
+                    printf("\"auto\" starts the automatic antenna control state.\n\n"
+                    "\tUpon starting this program, the antenna first homes itself, after which it starts actively tracking the Sun.\n"
+                    "\tThe program calculates the Sun's position using NASA's CSPICE library.\n"
+                    "\tThe position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.\n"
+                    "\tThe automatic control state can be checked via the \"status\" command - see \"status\" for more details.\n\n");
+
+                    printf("\"manual\" starts the manual control state.\n\n"
+                    "\tIf this state is selected while the antenna is actively tracking, the automatic tracking program is halted.\n"
+                    "\tThis mode enables manual control of the antenna.\n"
+                    "\tjog lijevo desno, odredeni RA, oyu name it. ovisno o tome kako napisemo metodu\n"
+                    "\tThe position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.\n"
+                    "\tThe manual control state can be checked via the \"status\" command - see \"status\" for more details.\n\n");
+
+                    printf("\"stop\" stops the selected mode and the program is now in idle state.\n\n"
+                    "\tIf this mode is selected while the antenna is actively tracking, the automatic tracking program is halted.\n\n");
+
+                    printf("\"status\" shows the status of the mode the program is in.\n\n"
+                    "\tWRITE IT OUT FOR EVERY STATE.\n\n");
+
+                    printf("\"quit\" gracefully quits the whole program, independent of the mode the program is in.\n\n"
+                    "\tIf this mode is selected while the antenna is actively tracking, the program !should! write the last known position in a file\n\n");
                     
-                    printf("napisi help za svaku komandu pwetty pls uwu\n");
+                    printf("\"clear\" clears the console output.\n\n");
                 }                
+            }
+
+            else if (!strcmp(buf, "clear")){
+                system("@cls||clear");
+                printf("Commands: auto | manual | stop | status | quit | help | clear\n\n");     
             }
 
             else {
@@ -123,7 +154,7 @@ int main(void){
     make_stdin_nonblocking();
     pthread_create(&console_thread, NULL, consoleThread, NULL);
 
-    printf("Antenna automation software\n");
+    printf("\nAntenna automation software\n");
     printf("Callisto Station Visnjan\n");
     printf("Version %s\n", programVersion);
     printf("Authors: Matej Markovic, Marko Radolovic\n");
