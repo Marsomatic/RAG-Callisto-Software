@@ -32,10 +32,46 @@ void make_stdin_nonblocking(void){
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 }
 
+/* ======================= read from file ======================= */
+
+void readFromFile(const char* fileName){
+    FILE *file;
+    char buffer[256];
+    char next[256];
+
+    file = fopen(fileName, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    /* Read first line */
+    if (fgets(buffer, sizeof(buffer), file) != NULL) {
+
+        /* Read remaining lines */
+        while (fgets(next, sizeof(next), file) != NULL) {
+            printf("%s", buffer);
+            strcpy(buffer, next);
+        }
+
+        /* Handle last line: remove trailing newline if present */
+        size_t len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+
+        printf("%s", buffer);
+    }
+
+    fflush(stdout);
+    fclose(file);
+}
+
 /* ======================= CONSOLE THREAD ====================== */
 
 void *consoleThread(void *arg){
     char buf[128];
+    const char* helpFile = "help.txt";
 
     printf("Console is ready.\n");
     printf("\nCommands: auto | manual | stop | status | quit | help | clear\n\n");
@@ -83,9 +119,9 @@ void *consoleThread(void *arg){
             }
 
             else if (!strcmp(buf, "status")){
-	    	    if(current_state == ST_AUTOMATIC) printf("[STATUS] Current state is automatic tracking\n");
-	    	    if(current_state == ST_MANUAL) printf("[STATUS] Current state is manual tracking\n");
-		        if(current_state == ST_IDLE) printf("[STATUS] Current state is idle state.\n");
+	    	    if(current_state == ST_AUTOMATIC) printf("\n[STATUS] Current state is automatic tracking\n\n");
+	    	    if(current_state == ST_MANUAL) printf("\n[STATUS] Current state is manual tracking\n\n");
+		        if(current_state == ST_IDLE) printf("\n[STATUS] Current state is idle state.\n\n");
             }
 
             else if (!strcmp(buf, "quit")){
@@ -95,41 +131,11 @@ void *consoleThread(void *arg){
             }
 
             else if (!strcmp(buf, "help")){
-                if(current_state == ST_AUTOMATIC || current_state == ST_MANUAL || current_state == ST_IDLE){
-                    //printf("[CMD] Help\n");
-                    printf("\nCommands: auto | manual | stop | status | quit | help | clear\n\n");
-
-                    printf("\nThis control program has been implemented as a 3 state finite state machine\n"
-                    "The 3 states are automatic control, manual control, and idle state\n\n");
-
-                    printf("WE SHOULD AGREE UPON WHAT DOES THE IDLE STATE DO, DO WE KILL THREADS?\n\n");
-
-                    printf("\"auto\" starts the automatic antenna control state.\n\n"
-                    "\tUpon starting this program, the antenna first homes itself, after which it starts actively tracking the Sun.\n"
-                    "\tThe program calculates the Sun's position using NASA's CSPICE library.\n"
-                    "\tThe position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.\n"
-                    "\tThe automatic control state can be checked via the \"status\" command - see \"status\" for more details.\n\n");
-
-                    printf("\"manual\" starts the manual control state.\n\n"
-                    "\tIf this state is selected while the antenna is actively tracking, the automatic tracking program is halted.\n"
-                    "\tThis mode enables manual control of the antenna.\n"
-                    "\tjog lijevo desno, odredeni RA, oyu name it. ovisno o tome kako napisemo metodu\n"
-                    "\tThe position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.\n"
-                    "\tThe manual control state can be checked via the \"status\" command - see \"status\" for more details.\n\n");
-
-                    printf("\"stop\" stops the selected mode and the program is now in idle state.\n\n"
-                    "\tIf this mode is selected while the antenna is actively tracking, the automatic tracking program is halted.\n\n");
-
-                    printf("\"status\" shows the status of the mode the program is in.\n\n"
-                    "\tWRITE IT OUT FOR EVERY STATE.\n\n");
-
-                    printf("\"quit\" gracefully quits the whole program, independent of the mode the program is in.\n\n"
-                    "\tIf this mode is selected while the antenna is actively tracking, the program !should! write the last known position in a file\n\n");
-                    
-                    printf("\"clear\" clears the console output.\n\n");
-                }                
+                system("@cls||clear");
+                readFromFile(helpFile);
+                printf("\n\n");
             }
-
+            
             else if (!strcmp(buf, "clear")){
                 system("@cls||clear");
                 printf("Commands: auto | manual | stop | status | quit | help | clear\n\n");     
@@ -139,8 +145,6 @@ void *consoleThread(void *arg){
                 printf("[CMD] Unknown command: %s\n", buf);
             }
         }
-
-       //usleep(50000); // 50 ms
     }
     return NULL;
 }
@@ -167,7 +171,7 @@ int main(void){
 
             case ST_IDLE:
                 if(idlePrintCounter){
-		        printf("The program is in idle state.\n"); // do nothing
+		        printf("The program is in idle state.\n\n"); // do nothing
 		        //so i can print only once
 		        idlePrintCounter = 0;
 		        }

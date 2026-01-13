@@ -1,0 +1,30 @@
+Commands: auto | manual | stop | status | quit | help | clear
+
+This control program has been implemented as a 3 state finite state machine
+The 3 states are automatic control, manual control, and idle states
+
+WE SHOULD AGREE UPON WHAT DOES THE IDLE STATE DO, DO WE KILL THREADS?
+
+"auto" starts the automatic antenna control state
+    Upon starting this program, the antenna first homes itself, after which it starts actively tracking the Sun.
+    The program calculates the Sun's position using NASA's CSPICE library."
+    The position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.
+    The automatic control state can be checked via the "status" command - see "status" for more details.
+
+"manual" starts the manual control state.
+    If this state is selected while the antenna is actively tracking, the automatic tracking program is halted.
+    This mode enables manual control of the antenna.
+    jog lijevo desno, odredeni RA, oyu name it. ovisno o tome kako napisemo metodu.
+    The position of the stepper motor is tracked via an incremental encoder. A PID loop controls the speed of the stepper motor.
+    The manual control state can be checked via the "status" command - see "status" for more details.
+
+"stop" stops the selected mode and the program is now in idle state.
+    If this mode is selected while the antenna is actively tracking, the automatic tracking program is halted.
+
+"status" shows the status of the mode the program is in.
+    WRITE IT OUT FOR EVERY STATE.
+
+"quit" gracefully quits the whole program, independent of the mode the program is in.
+    If this mode is selected while the antenna is actively tracking, the program !should! write the last known position in a file
+
+"clear" clears the console output.
