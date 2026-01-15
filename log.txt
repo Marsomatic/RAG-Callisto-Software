@@ -1,0 +1,9 @@
+The last known posiiton in encoder ticks is: 12345
+You performed a graceful shutdown at TIME
+
+The last known posiiton in encoder ticks is: 12345
+You performed a graceful shutdown at TIME
+
+The last known posiiton in encoder ticks is: 12345
+You performed a graceful shutdown at TIME
+

@@ -29,7 +29,7 @@
 #define ENC_B     17
 
 char programVersion[] = "V1.0.";
-char programDate[] = "12.01.2026";
+char programDate[] = "12.01.2026.";
 
 // Encoder state
 volatile long encoder_ticks = 0;
@@ -59,41 +59,6 @@ volatile int control_running = 0;
 void make_stdin_nonblocking(void){
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-}
-
-/* ======================= read from file ======================= */
-
-void readFromFile(const char* fileName){
-    FILE *file;
-    char buffer[256];
-    char next[256];
-
-    file = fopen(fileName, "r");
-    if (file == NULL) {
-        perror("Error opening file");
-        return;
-    }
-
-    /* Read first line */
-    if (fgets(buffer, sizeof(buffer), file) != NULL) {
-
-        /* Read remaining lines */
-        while (fgets(next, sizeof(next), file) != NULL) {
-            printf("%s", buffer);
-            strcpy(buffer, next);
-        }
-
-        /* Handle last line: remove trailing newline if present */
-        size_t len = strlen(buffer);
-        if (len > 0 && buffer[len - 1] == '\n') {
-            buffer[len - 1] = '\0';
-        }
-
-        printf("%s", buffer);
-    }
-
-    fflush(stdout);
-    fclose(file);
 }
 
 /* ======================= CSPICE FUNCTIONS ======================= */
@@ -172,7 +137,6 @@ SpiceDouble getHa(){
 
 /* ======================= UTIL FUNCTIONS ====================== */
 
-// --- Encoder ISR ---
 void encoderISR(void) {
     static const int8_t TRANSITION[16] = {
     0, -1, 1, 0,
@@ -207,7 +171,6 @@ void encoderISR(void) {
     pthread_mutex_unlock(&lock);
 }
 
-// --- PID loop ---
 void pid_loop(float dt) {
     volatile float Kp = 10.0, Ki = 0.0, Kd = 0.0;
     pthread_mutex_lock(&lock);
@@ -234,6 +197,87 @@ void pid_loop(float dt) {
     pthread_mutex_unlock(&lock);
     printf("encoder_ticks: %f;   error: %f;   output/step_rate:%f   ", loc_encoder_ticks, error, output);
 }
+
+void readFromFile(const char* fileName){
+    FILE *file;
+    char buffer[256];
+    char next[256];
+
+    file = fopen(fileName, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    /* Read first line */
+    if (fgets(buffer, sizeof(buffer), file) != NULL) {
+
+        /* Read remaining lines */
+        while (fgets(next, sizeof(next), file) != NULL) {
+            printf("%s", buffer);
+            strcpy(buffer, next);
+        }
+
+        /* Handle last line: remove trailing newline if present */
+        size_t len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+
+        printf("%s", buffer);
+    }
+
+    fflush(stdout);
+    fclose(file);
+}
+
+void writeToFile(const char *filename, char *stringToWrite) {
+    // Writes a string to a file (appends if it exists)
+    FILE *filePointer = fopen(filename, "a");  // open for appending
+    if (filePointer == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    if (fprintf(filePointer, "%s", stringToWrite) < 0) {  // write the string
+        perror("Error writing to file");
+    }
+
+    fclose(filePointer);
+}
+
+char *stringConcatenate(const char *s1, const char *s2) {
+    //strlen does not include \0
+    size_t len1 = strlen(s1);
+    size_t len2 = strlen(s2);
+    //we have to add +1 for the \0 at the end
+    char *result = malloc(len1 + len2 + 1);
+    if (!result) return NULL;
+
+    //this memcopy DOES NOT include s1's \0
+    memcpy(result, s1, len1); 
+    // this copy includes the \0, making it the \0 of the concat'd string
+    memcpy(result + len1, s2, len2 + 1);
+    return result;
+}
+
+void writeLog(const char *filename){
+    char encoder_str[32];      // buffer to hold the string
+    long temp = encoder_ticks; // Make a snapshot of the volatile variable to be safe
+
+    // Convert to string
+    snprintf(encoder_str, sizeof(encoder_str), "%ld", temp);
+    char text[] = "The last known posiiton in encoder ticks is: ";
+    char *output = stringConcatenate(text, encoder_str);
+    
+    writeToFile(filename, output);
+    free(output); //you have to free memory because you malloced it in string concatenate!!!!
+    writeToFile(filename, "\n");
+    writeToFile(filename, "You performed a graceful shutdown at TIME\n\n");
+
+    return;
+}
+
 
 /* ======================= STEPPER THREAD ====================== */
 
@@ -311,8 +355,13 @@ void *automaticGuidanceThread(void *arg){
 
 /* ======================= MANUAL CONTROL THREAD ====================== */
 
-
-
+  //write a manual control thread
+  //stop - to stop press q or s or whatever
+  //pomak na manji RA
+  //pomak na veći RA
+  //pomak na određenu poziciju
+  //zelis li upisivati u RA obliku ili kut
+  
 /* ======================= CONSOLE THREAD ====================== */
 
 void *consoleThread(void *arg){
@@ -451,6 +500,7 @@ int main(void){
     printf("Visnjan, %s\n \n", programDate);
     printf("Control program has been started.\n");
 
+    //u fajl zapisat last known position i dal je bio safe shutdown
 
     while(system_running){
         switch(current_state){
@@ -477,6 +527,7 @@ int main(void){
 
             case ST_QUIT:
 		        idlePrintCounter = 1;
+                control_running = 0;
                 system_running = 0;
                 break;
         }
@@ -485,6 +536,11 @@ int main(void){
     }
 
     pthread_join(console_thread, NULL);
+    control_running = 0;
+    //at this moment, all of the threads will be killed
+    
+    writeLog("shutdownLog.txt");
+
     printf("You have performed a graceful shutdown. The control program shall now terminate.\n");
     return 0;
 }

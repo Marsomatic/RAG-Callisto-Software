@@ -24,6 +24,7 @@ typedef enum {
 
 volatile SystemState current_state = ST_IDLE;
 volatile int system_running = 1;
+volatile long encoder_ticks = 12345;
 
 /* ======================= NON-BLOCKING STDIN ======================= */
 
@@ -32,7 +33,7 @@ void make_stdin_nonblocking(void){
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 }
 
-/* ======================= read from file ======================= */
+/* ======================= UTIL FUNCTIONS ======================= */
 
 void readFromFile(const char* fileName){
     FILE *file;
@@ -65,6 +66,53 @@ void readFromFile(const char* fileName){
 
     fflush(stdout);
     fclose(file);
+}
+
+// Writes a string to a file (appends if it exists)
+void writeToFile(const char *filename, char *stringToWrite) {
+    FILE *filePointer = fopen(filename, "a");  // open for appending
+    if (filePointer == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    if (fprintf(filePointer, "%s", stringToWrite) < 0) {  // write the string
+        perror("Error writing to file");
+    }
+
+    fclose(filePointer);
+}
+
+char *stringConcatenate(const char *s1, const char *s2) {
+    //strlen does not include \0
+    size_t len1 = strlen(s1);
+    size_t len2 = strlen(s2);
+    //we have to add +1 for the \0 at the end
+    char *result = malloc(len1 + len2 + 1);
+    if (!result) return NULL;
+
+    //this memcopy DOES NOT include s1's \0
+    memcpy(result, s1, len1); 
+    // this copy includes the \0, making it the \0 of the concat'd string
+    memcpy(result + len1, s2, len2 + 1);
+    return result;
+}
+
+void writeLog(const char *filename){
+    char encoder_str[32];      // buffer to hold the string
+    long temp = encoder_ticks; // Make a snapshot of the volatile variable to be safe
+
+    // Convert to string
+    snprintf(encoder_str, sizeof(encoder_str), "%ld", temp);
+    char text[] = "The last known posiiton in encoder ticks is: ";
+    char *output = stringConcatenate(text, encoder_str);
+    
+    writeToFile(filename, output);
+    free(output); //you have to free memory because you malloced it in string concatenate!!!!
+    writeToFile(filename, "\n");
+    writeToFile(filename, "You performed a graceful shutdown at TIME\n\n");
+
+    return;
 }
 
 /* ======================= CONSOLE THREAD ====================== */
@@ -199,6 +247,17 @@ int main(void){
     }
 
     pthread_join(console_thread, NULL);
+
+    writeLog("shutdownLog.txt");
+
     printf("You have performed a graceful shutdown. The control program shall now terminate.\n");
     return 0;
 }
+
+/*trebamo pogledat kako se rade daemons in C
+navodno nije komplicirano
+odi na stack i kopiraj sve sta se tamo nalazi lol
+trebta cemo napisat zasebni program za daemon
+treba pogledat multiplexing sa poll funckijom
+*/
+
