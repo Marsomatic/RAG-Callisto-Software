@@ -1,0 +1,14 @@
+While running the main_AIO on the Pi, I noticed a couple of things.
+
+If the threads are not killed when stop is entered, when you try to enter auto the second time, the program freezes.
+I think it throws an error that the threads are already made and it just does not want to continue.
+
+-------------------------------------------------
+This is a topic for discussion when Matej and I are not talking at midnight over a meme session........
+if you read this lil bro, hi:)
+-------------------------------------------------
+
+Secondly, the WiringPi's ISR thread is complaining that the ISR function thread is already called once.
+Upon inspection, it seems that the pigpio is a better alternative for GPIO handling.
+It seems that this library is quite well managed.
+

@@ -1,3 +1,10 @@
+/*
+Authors: Matej Markovic, Marko Radolovic
+compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspice -lwiringPi
+or
+gcc -o main_AIO.out main_AIO.c -I/home/kalisto/cspice/include -L/home/kalisto/cspice/lib -lm -lcspice -lwiringPi -lpthread
+*/
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -71,14 +78,14 @@ SpiceDouble getEphemerisTime(){
     struct tm *utc = gmtime(&rawtime);
     strftime(utc_str, sizeof(utc_str), "%Y-%m-%dT%H:%M:%S", utc);
     str2et_c(utc_str, &ephemeris_time);
-    printf("time: %d;   ", ephemeris_time);
+    //printf("time: %d;   ", ephemeris_time);
 
     return ephemeris_time;
 }
 
 SpiceDouble getHa(){
     SpiceDouble ephemeris_time = getEphemerisTime();
-    printf("time ha: %d", ephemeris_time);
+    //printf("time ha: %d", ephemeris_time);
 
     SpiceDouble obs_lat = 0.790213649;
     SpiceDouble obs_lon = 0.239491811;
@@ -195,7 +202,7 @@ void pid_loop(float dt) {
     pthread_mutex_lock(&lock);
     target_step_rate = output; // steps/sec
     pthread_mutex_unlock(&lock);
-    printf("encoder_ticks: %f;   error: %f;   output/step_rate:%f   ", loc_encoder_ticks, error, output);
+    //printf("encoder_ticks: %f;   error: %f;   output/step_rate:%f   \n", loc_encoder_ticks, error, output);
 }
 
 void readFromFile(const char* fileName){
@@ -283,7 +290,7 @@ void writeLog(const char *filename){
 
 void *stepperThread(void *arg) {
     printf("Starting stepper thread\n");
-    while (1) {
+    while (control_running) {
         float step_rate;
         pthread_mutex_lock(&lock);
         step_rate = target_step_rate;
@@ -346,7 +353,7 @@ void *automaticGuidanceThread(void *arg){
         setpoint = loc_setpoint;
         pthread_mutex_unlock(&lock);
 
-        printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
+        //printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
         pid_loop(PID_PERIOD / 1000.0);
         nanosleep(&ts, NULL);
         cycleCounter++;
@@ -400,6 +407,7 @@ void *consoleThread(void *arg){
 		        if(current_state == ST_AUTOMATIC){
 			        //control_running = 0; //if this is uncommented, the threads will be killed and the auto control must be started again
                     current_state = ST_IDLE;
+                    control_running = 0;
 			        printf("Automatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 

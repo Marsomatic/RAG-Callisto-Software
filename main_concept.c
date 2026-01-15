@@ -1,3 +1,11 @@
+/*
+Authors: Matej Markovic, Marko Radolovic
+compile with: gcc -o cspice_test.exe cspice_test.c -I/path/to/cspice/include -L/path/to/cspice/lib -lm -lcspice -lwiringPi
+or
+gcc -o main_AIO.out main_AIO.c -I/home/kalisto/cspice/include -L/home/kalisto/cspice/lib -lm -lcspice -lwiringPi -lpthread
+*/
+
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
