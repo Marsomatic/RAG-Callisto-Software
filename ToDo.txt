@@ -12,3 +12,10 @@ Secondly, the WiringPi's ISR thread is complaining that the ISR function thread 
 Upon inspection, it seems that the pigpio is a better alternative for GPIO handling.
 It seems that this library is quite well managed.
 
+umjesto da je kreiranje dretvi automaticguidance i stepper uunutar automaticcontorl(),
+premjesti na pocetak maina i onda lockaj kad si u drugim stanjima ili pak unlockaj kad si unutar automatic stanja.
+
+dani: gledat na dretve kao varijable. nema smisla alocirat i dealocirat memoriju stalno. think of them as static variables.
+
+dodat mutex lock na cijeli stepper thread
+
