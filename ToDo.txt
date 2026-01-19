@@ -19,3 +19,5 @@ dani: gledat na dretve kao varijable. nema smisla alocirat i dealocirat memoriju
 
 dodat mutex lock na cijeli stepper thread
 
+redizajn threadova
+
