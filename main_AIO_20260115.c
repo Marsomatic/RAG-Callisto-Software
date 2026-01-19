@@ -212,7 +212,7 @@ void readFromFile(const char* fileName){
 
     file = fopen(fileName, "r");
     if (file == NULL) {
-        perror("Error opening file");
+        perror("\nError opening file\n");
         return;
     }
 
@@ -242,12 +242,12 @@ void writeToFile(const char *filename, char *stringToWrite) {
     // Writes a string to a file (appends if it exists)
     FILE *filePointer = fopen(filename, "a");  // open for appending
     if (filePointer == NULL) {
-        perror("Error opening file");
+        perror("\nError opening file\n");
         return;
     }
 
     if (fprintf(filePointer, "%s", stringToWrite) < 0) {  // write the string
-        perror("Error writing to file");
+        perror("\nError writing to file\n");
     }
 
     fclose(filePointer);

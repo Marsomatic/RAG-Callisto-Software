@@ -220,7 +220,7 @@ void readFromFile(const char* fileName){
 
     file = fopen(fileName, "r");
     if (file == NULL) {
-        perror("Error opening file");
+        perror("\nError opening file\n");
         return;
     }
 
@@ -250,12 +250,12 @@ void writeToFile(const char *filename, char *stringToWrite) {
     // Writes a string to a file (appends if it exists)
     FILE *filePointer = fopen(filename, "a");  // open for appending
     if (filePointer == NULL) {
-        perror("Error opening file");
+        perror("\nError opening file\n");
         return;
     }
 
     if (fprintf(filePointer, "%s", stringToWrite) < 0) {  // write the string
-        perror("Error writing to file");
+        perror("\nError writing to file\n");
     }
 
     fclose(filePointer);
@@ -337,7 +337,7 @@ void *stepperThread(void *arg) {
 void *automaticGuidanceThread(void *arg){
     SpiceDouble ha;
     int loc_setpoint;
-    printf("\nStarting the guidance thread\n");
+    printf("\nGuidance thread has been started\n");
 
     struct timespec ts;
     ts.tv_sec = 0;
@@ -401,18 +401,18 @@ void *consoleThread(void *arg){
 
             if (!strcmp(buf, "auto")){
                 if(current_state == ST_AUTOMATIC){
-			        printf("already in automatic tracking mode\n");
+			        printf("\nThe program is already in the automatic tracking state\n");
 			        continue;
 		        }
 		        current_state = ST_AUTOMATIC;
                 digitalWrite(EN_PIN, 0);
                 pthread_mutex_unlock(&stepper_lock); // enable stepper thread
-                printf("[CMD] Automatic mode pocetak automatskog\n");
+                printf("\n[CMD] Starting the automatic tracking state\n");
             }
 
             else if (!strcmp(buf, "manual")){
                 if(current_state == ST_MANUAL){
-			        printf("already in manual control mode\n");
+			        printf("\nThe program is already in the manual control state\n");
 			        continue;
 		        }
                 else if(current_state == ST_AUTOMATIC) {
@@ -420,7 +420,7 @@ void *consoleThread(void *arg){
                     pthread_mutex_lock(&stepper_lock); // disable stepper thread
                 }
 		        current_state = ST_MANUAL;
-                printf("[CMD] Manual  mode -  pocetak manualnog\n");
+                printf("\n[CMD] Starting the manual control state\n");
             }
 
             else if (!strcmp(buf, "stop")){
@@ -429,23 +429,23 @@ void *consoleThread(void *arg){
                     pthread_mutex_lock(&stepper_lock); // disable stepper thread
 			        //control_running = 0; //if this is uncommented, the threads will be killed and the auto control must be started again
                     current_state = ST_IDLE;
-			        printf("Automatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
+			        printf("\nAutomatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 
 		        if(current_state == ST_MANUAL){
 			        current_state = ST_IDLE;
-			        printf("Manual control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
+			        printf("\nManual control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 
 		        if(current_state == ST_IDLE){
-                	printf("[CMD] Stop\n");
-			        printf("Previous state/command is stopped. Use these commands to continue: auto | manual | stop | status | quit\n");
+                	printf("\n[CMD] Stop\n");
+			        printf("\nPrevious state/command has been stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
             }
 
             else if (!strcmp(buf, "status")){
 	    	    if(current_state == ST_AUTOMATIC) printf("\n[STATUS] Current state is automatic tracking\n\n");
-	    	    if(current_state == ST_MANUAL) printf("\n[STATUS] Current state is manual tracking\n\n");
+	    	    if(current_state == ST_MANUAL) printf("\n[STATUS] Current state is manual control\n\n");
 		        if(current_state == ST_IDLE) printf("\n[STATUS] Current state is idle state.\n\n");
             }
 
@@ -456,7 +456,7 @@ void *consoleThread(void *arg){
                 }
                 current_state = ST_QUIT;
                 system_running = 0;
-                printf("[CMD] Quit\n");
+                printf("\n[CMD] Quit\n");
             }
 
             else if (!strcmp(buf, "help")){
@@ -471,7 +471,7 @@ void *consoleThread(void *arg){
             }
 
             else {
-                printf("[CMD] Unknown command: %s\n", buf);
+                printf("\n[CMD] Unknown command: %s\n", buf);
             }
         }
     }
@@ -532,6 +532,6 @@ int main(void){
     //u fajl zapisat last known position i dal je bio safe shutdown
     writeLog("shutdownLog.txt");
 
-    printf("You have performed a graceful shutdown. The control program shall now terminate.\n");
+    printf("\n\nYou have performed a graceful shutdown. The control program shall now terminate.\n");
     return 0;
 }
