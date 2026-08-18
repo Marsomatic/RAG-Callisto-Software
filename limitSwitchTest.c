@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-#define switchPin 23
+#define switchPin1 23
+#define switchPin2 24
 #define MAX_COUNT 5
 
 //Only accept a state if it remains the same for N consecutive reads.

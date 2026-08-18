@@ -43,6 +43,7 @@ gcc -o main_AIO.out main_AIO.c -I/home/kalisto/cspice/include -L/home/kalisto/cs
 
 char programVersion[] = "V1.1.";
 char programDate[] = "18.01.2026.";
+
 bool manualShitter = false;
 
 // Encoder state
@@ -320,9 +321,12 @@ void writeLog(const char *filename){
 
 void home(){
     printf("dioo pporko kane");
+    
     Debounce sw1 = {0, false};
     Debounce sw2 = {0, false};
+
     printf("Shitter is shitting its pants. uwuw");
+
     while(1){
         bool state1 = debounce_read(&sw1, (bool)digitalRead(switchPin1));
         bool state2 = debounce_read(&sw2, (bool)digitalRead(switchPin2));
@@ -417,12 +421,12 @@ void *automaticGuidanceThread(void *arg){
             }
             cycleCounter = 0;
         }
+        
         if(current_state == ST_MANUAL){
         pthread_mutex_lock(&data_lock);
         setpoint = loc_setpoint;
         pthread_mutex_unlock(&data_lock);
         }
-
         //printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
         pid_loop(PID_PERIOD / 1000.0);
         nanosleep(&ts, NULL);
@@ -477,8 +481,10 @@ void *consoleThread(void *arg){
                 }
 		        current_state = ST_MANUAL;
                 printf("\n[CMD] Starting the manual control state\n");
-                home();
+                printf("tu san tz sab");
+                //home();
             }
+
 
             else if (!strcmp(buf, "stop")){
 		        if(current_state == ST_AUTOMATIC){
@@ -559,7 +565,7 @@ int main(void){
     furnsh_c("/home/kalisto/cspice/kernels/naif0012.tls");    // leapseconds
     furnsh_c("/home/kalisto/cspice/kernels/de435.bsp");      // planetary ephemeris
     furnsh_c("/home/kalisto/cspice/kernels/pck00011.tpc");    // Earth orientation & shape
-    furnsh_c("/home/kalisto/cspice/kernels/earth_000101_260327_251229.bpc"); // earth binary pck
+    furnsh_c("/home/kalisto/cspice/kernels/earth_000101_261110_260814.bpc"); // earth binary pck
     printf("\nNASA CSpice Kernels have been loaded.\n");
 
     digitalWrite(EN_PIN, 1); //EN = LOW enables the stepper driver. EN = HIGH disables the stepper driver
@@ -581,7 +587,6 @@ int main(void){
     pthread_mutex_init(&data_lock, NULL);
     pthread_mutex_init(&stepper_lock, NULL); //used to lock the stepper thread while it is not used
     pthread_mutex_lock(&stepper_lock); // lock by default, unlock to enable thread
-
 
     pthread_join(stepper_thread, NULL);
     pthread_join(guidance_thread, NULL);
