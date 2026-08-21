@@ -37,7 +37,7 @@ gcc -o main_AIO.out main_AIO.c -I/home/kalisto/cspice/include -L/home/kalisto/cs
 #define EN_PIN    6
 #define ENC_A     27
 #define ENC_B     17
-#define switchPin1 23
+#define switchPin1 12
 #define switchPin2 24
 #define MAX_COUNT 5
 
@@ -62,7 +62,8 @@ pthread_t stepper_thread;
 pthread_t guidance_thread;
 
 // Thread control
-pthread_mutex_t stepper_lock;
+pthread_mutex_t stepper_lock; // no longer used to gate the thread, kept initialized so nothing else breaks
+volatile int stepper_enabled = 0; // 1 = stepperThread is allowed to actually step the motor
 
 /* ======================= STRUCTURE DEF FOR SWITCH READING ======================= */
 
@@ -320,53 +321,60 @@ void writeLog(const char *filename){
 }
 
 void home(){
-    printf("\ndioo pporko kane\n");
-    
+    printf("\nHoming started.\n");
+
     Debounce sw1 = {0, false};
     Debounce sw2 = {0, false};
 
-    printf("\nShitter is shitting its pants. uwuw\n");
+    // Make sure the driver is enabled and the stepper thread is actually
+    // allowed to run - otherwise target_step_rate below does nothing.
+    digitalWrite(EN_PIN, 0);
+    stepper_enabled = 1;
 
     while(1){
-        printf("\nsetpoint is:%d \n",setpoint);
         bool state1 = debounce_read(&sw1, (bool)digitalRead(switchPin1));
         bool state2 = debounce_read(&sw2, (bool)digitalRead(switchPin2));
 
-        digitalWrite(EN_PIN, 0);
-
-        //HAZARDDDDDDDDDDD DODAJ MUTEKS LOK
         //pomicem motore u lijevo
-        setpoint--;
-        target_step_rate = 400;
+        pthread_mutex_lock(&data_lock);
+        //setpoint++;
+        target_step_rate = 5000;
+        pthread_mutex_unlock(&data_lock);
 
         //kada lupi u switch, stani
         if(state1 || state2){
             //stani, ugasi motore
-            digitalWrite(EN_PIN, 1);
-            target_step_rate = 0;
             pthread_mutex_lock(&data_lock);
+            target_step_rate = 0;
             if(state1){
-                encoder_ticks = (int)(HOME_1/360 * (2*PI) * TICKS_PER_REV);
+                encoder_ticks = (long)((float)HOME_1/360.0f * (2.0f*PI) * TICKS_PER_REV);
             } else if (state2){
-                encoder_ticks = (int)(HOME_2/360 * (2*PI) * TICKS_PER_REV);
+                encoder_ticks = (long)((float)HOME_2/360.0f * (2.0f*PI) * TICKS_PER_REV);
             }
-            
+            setpoint = encoder_ticks; // stop the PID from immediately driving away from home
+            pthread_mutex_unlock(&data_lock);
+            digitalWrite(EN_PIN, 1);
+            stepper_enabled = 0;
             break;
         }
+
+        usleep(1000); // pace the loop instead of spinning the CPU at 100%
     }
 
-    bool state1 = debounce_read(&sw1, (bool)digitalRead(switchPin1));
-    bool state2 = debounce_read(&sw2, (bool)digitalRead(switchPin2));
+    printf("\nHoming complete.\n");
 }
 /* ======================= STEPPER THREAD ====================== */
 
 void *stepperThread(void *arg) {
     printf("\nStarting the stepper thread.\n");
     while (1) {
-        pthread_mutex_lock(&stepper_lock); // block thread if disabled
-        pthread_mutex_unlock(&stepper_lock); // allow other threads to disable this one
         if(!system_running) {
             break;
+        }
+
+        if(!stepper_enabled) {
+            usleep(1000); // idle while disabled, don't touch the GPIO
+            continue;
         }
 
         float step_rate;
@@ -420,6 +428,7 @@ void *automaticGuidanceThread(void *arg){
         if (cycleCounter > TARGET_POSITION_UPDATE_MULTIPLIER){
             ha = getHa();
             loc_setpoint = (int)(ha/(2*PI) * TICKS_PER_REV + TICKS_PER_REV/4.0f);
+            printf("\nshitter: %d\n", loc_setpoint);
             if (loc_setpoint > TICKS_PER_REV/2){
                 loc_setpoint -= TICKS_PER_REV/2;
             } else if (loc_setpoint < -TICKS_PER_REV/2){
@@ -428,14 +437,14 @@ void *automaticGuidanceThread(void *arg){
             cycleCounter = 0;
         }
 
-/*         if (current_state == ST_MANUAL)
+        if (current_state == ST_AUTOMATIC)
         {
             pthread_mutex_lock(&data_lock);
             setpoint = loc_setpoint;
             pthread_mutex_unlock(&data_lock);
-        } */
-        //printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
-        pid_loop(PID_PERIOD / 1000.0);
+            //printf("ha: %f;   setpoint: %d;   cycleCounter: %d\n", ha, loc_setpoint, cycleCounter);
+            pid_loop(PID_PERIOD / 1000.0); // only let the PID drive target_step_rate while tracking - otherwise it fights home()/manual jogging
+        }
         nanosleep(&ts, NULL);
         cycleCounter++;
     }
@@ -473,7 +482,7 @@ void *consoleThread(void *arg){
 		        }
 		        current_state = ST_AUTOMATIC;
                 digitalWrite(EN_PIN, 0);
-                pthread_mutex_unlock(&stepper_lock); // enable stepper thread
+                stepper_enabled = 1; // enable stepper thread
                 printf("\n[CMD] Starting the automatic tracking state\n");
             }
 
@@ -482,30 +491,24 @@ void *consoleThread(void *arg){
 			        printf("\nThe program is already in the manual control state\n");
 			        continue;
 		        }
-                else if(current_state == ST_AUTOMATIC) {
-                    //digitalWrite(EN_PIN, 1);
-                    pthread_mutex_lock(&stepper_lock); // disable stepper thread
-                }
-		        printf("\nbefore state shange\n");
                 current_state = ST_MANUAL;
                 printf("\n[CMD] Starting the manual control state\n");
-                printf("\nafter state change\n");
-                home();
-                printf("\nim after home\n");
+                home(); // home() enables the stepper thread itself and disables it when done
             }
 
 
             else if (!strcmp(buf, "stop")){
 		        if(current_state == ST_AUTOMATIC){
                     digitalWrite(EN_PIN, 1);
-                    pthread_mutex_lock(&stepper_lock); // disable stepper thread
+                    stepper_enabled = 0; // disable stepper thread
 			        //control_running = 0; //if this is uncommented, the threads will be killed and the auto control must be started again
                     current_state = ST_IDLE;
 			        printf("\nAutomatic control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 
 		        if(current_state == ST_MANUAL){
-			        current_state = ST_IDLE;
+			        digitalWrite(EN_PIN, 1);
+                    current_state = ST_IDLE;
 			        printf("\nManual control stopped.\nUse these commands to continue: auto | manual | stop | status | quit\n");
 		        }
 
@@ -523,9 +526,7 @@ void *consoleThread(void *arg){
 
             else if (!strcmp(buf, "quit")){
                 digitalWrite(EN_PIN, 1);
-                if(current_state != ST_AUTOMATIC) {
-                    pthread_mutex_unlock(&stepper_lock); // enable stepper thread to allow it to exit
-                }
+                stepper_enabled = 0;
                 current_state = ST_QUIT;
                 system_running = 0;
                 printf("\n[CMD] Quit\n");
@@ -586,16 +587,18 @@ int main(void){
     printf("Visnjan, %s\n \n", programDate);
     printf("Control program has been started.\n");
 
+    //init mutexes - must happen before the threads that use them are created,
+    //otherwise encoderISR/stepperThread/automaticGuidanceThread can lock an
+    //uninitialized mutex
+    pthread_mutex_init(&data_lock, NULL);
+    pthread_mutex_init(&stepper_lock, NULL); // kept for compatibility, no longer used to gate the thread
+    stepper_enabled = 0; // stepper thread starts idle; 'auto' or 'manual' enables it
+
     //create threads
-    
+
     pthread_create(&stepper_thread, NULL, stepperThread, NULL);
     pthread_create(&guidance_thread, NULL, automaticGuidanceThread, NULL);
     pthread_create(&console_thread, NULL, consoleThread, NULL);
-    
-    //init mutexes
-    pthread_mutex_init(&data_lock, NULL);
-    pthread_mutex_init(&stepper_lock, NULL); //used to lock the stepper thread while it is not used
-    pthread_mutex_lock(&stepper_lock); // lock by default, unlock to enable thread
 
     pthread_join(stepper_thread, NULL);
     pthread_join(guidance_thread, NULL);
