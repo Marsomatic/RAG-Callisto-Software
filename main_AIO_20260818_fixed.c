@@ -41,8 +41,8 @@ gcc -o main_AIO.out main_AIO.c -I/home/kalisto/cspice/include -L/home/kalisto/cs
 #define switchPin2 24
 #define MAX_COUNT 5
 
-char programVersion[] = "V1.1.";
-char programDate[] = "18.01.2026.";
+char programVersion[] = "V1.2.";
+char programDate[] = "20.08.2026.";
 
 bool manualShitter = false;
 
@@ -307,7 +307,7 @@ void writeLog(const char *filename){
     char encoder_str[32];      // buffer to hold the string
     long temp = encoder_ticks; // Make a snapshot of the volatile variable to be safe
 
-    // Convert to string
+    // Convert to string<<<<<<<<<
     snprintf(encoder_str, sizeof(encoder_str), "%ld", temp);
     char text[] = "The last known posiiton in encoder ticks is: ";
     char *output = stringConcatenate(text, encoder_str);

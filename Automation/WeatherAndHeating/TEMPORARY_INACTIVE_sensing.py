@@ -2,10 +2,7 @@ from ina219 import INA219
 from time import sleep
 import smbus2
 import bme280
-import bmp180
-import board
 import os
-from math import *
 
 SHUNT_OHMS = 0.1
 
@@ -14,8 +11,7 @@ MAX_EXPECTED_AMPS_CALLISTO = 0.3
 MAX_EXPECTED_AMPS_LNA = 0.05
 
 #addresses of I2C devices on bus 1 of RPi
-bmpAddress = 0x77
-# bmeAddress= 0x76
+bmeAddress= 0x76
 callistoAddress = 0x44
 heaterAddress = 0x42
 lnaAddress = 0x40
@@ -34,9 +30,7 @@ inaLNA.configure(inaLNA.RANGE_16V, bus_adc=inaLNA.ADC_128SAMP, gain=inaLNA.GAIN_
 #defining port for BME280
 port = 1
 bus = smbus2.SMBus(port)
-i2c = board.I2C()
-bmp = bmp180.BMP180(i2c)
-# calibration_params = bme280.load_calibration_params(bus, bmeAddress)
+calibration_params = bme280.load_calibration_params(bus, bmeAddress)
 
 #5 lines
 def read(ina, inaAddress):
@@ -45,19 +39,19 @@ def read(ina, inaAddress):
 	#1.02 IS A CORRECTION COEFFICIENT FOUND BY COMPARING INA 
 	#AND A KNOWN MULTIMETER
         print(f"Bus Voltage {round(ina.voltage(), 3)}V")
-        print(f"Device Current {abs(round(ina.current()*1.02, 3))}mA")
-        print(f"Device Power {abs(round(ina.power(), 3))}mW")
+        print(f"Bus Current {round(ina.current()*1.02, 3)}mA")
+        print(f"Bus Power {round(ina.power(), 3)}mW")
         print("=================")
     except DeviceRangeError as e:
         print("Current overflow")
 
 #5 lines
-def readTemp(bus, bmeAddress):#, #calibration_params):
-    print(f"Address: {hex(bmpAddress)}")
-    # bme_data = bme280.sample(bus, bmeAddress, calibration_params)
-    print(f"Temperature: {round(bmp.temperature,3)} deg C")
-    print(f"Air pressure: {round(bmp.pressure,3)} hPa")
-    # print(f"Relative humidity: {round(bmp.humidity,3)} %")
+def readTemp(bus, bmeAddress, calibration_params):
+    print(f"Address: {hex(bmeAddress)}")
+    bme_data = bme280.sample(bus, bmeAddress, calibration_params)
+    print(f"Temperature: {round(bme_data.temperature,3)} deg C")
+    print(f"Air pressure: {round(bme_data.pressure,3)} hPa")
+    print(f"Relative humidity: {round(bme_data.humidity,3)} %")
     print("=================")
 
 
@@ -65,19 +59,17 @@ def readTemp(bus, bmeAddress):#, #calibration_params):
 while True:
     
     print("CALLISTO radio spectrometer")
-    print("")
     read(inaCallisto, callistoAddress)
 
     print("LNA - LNA4ALL low noise amplifier")
     read(inaLNA, lnaAddress)
 #from 24 subtract 6 for correct output without lna
     
-    print("Heater - 75W heater, 3.2A steady state, less on startup")
+    print("Heater - two 20W car light bulbs")
     read(inaHeater, heaterAddress)
 
-    print("BMP180 temperature sensor")
-    # readTemp(bus, bmpAddress, calibration_params)
-    readTemp(bus, bmpAddress)
+    print("BME280 temperature sensor")
+    readTemp(bus, bmeAddress, calibration_params)
         
     #The function print('\33[<number of rows>A', end='') is used to bring back the cursor to the beginning
     #so the print can "refresh" itself while taking a new measurement
